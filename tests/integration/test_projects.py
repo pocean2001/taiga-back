@@ -2513,6 +2513,7 @@ def test_create_first_swimlane_and_assign_to_uss(client):
     us = f.create_userstory(owner=membership.user,
                             project=project)
     assert us.swimlane is None
+    assert project.default_swimlane is None
 
     url = reverse('swimlanes-list')
     data = {
@@ -2522,9 +2523,11 @@ def test_create_first_swimlane_and_assign_to_uss(client):
     client.login(membership.user)
     response = client.json.post(url, json.dumps(data))
     us.refresh_from_db()
+    project.refresh_from_db()
 
     assert response.status_code == 201
     assert project.swimlanes.count() == 1
+    assert project.default_swimlane_id == us.swimlane_id
     assert us.swimlane is not None
 
 
@@ -2544,6 +2547,9 @@ def test_create_second_swimlane(client):
     response = client.json.post(url, json.dumps(data))
     swimlane_1_id = json.loads(response.content)['id']
 
+    project.refresh_from_db()
+    assert project.default_swimlane_id == swimlane_1_id
+
     # when: create second swimlane
     data = {
         "project": project.id,
@@ -2555,10 +2561,12 @@ def test_create_second_swimlane(client):
     swimlane_2 = Swimlane.objects.get(pk=swimlane_2_id)
 
     us.refresh_from_db()
+    project.refresh_from_db()
 
     # then
     assert response.status_code == 201
     assert project.swimlanes.count() == 2
+    assert project.default_swimlane_id == swimlane_1_id
     assert swimlane_2.user_stories.count() == 0
     assert us.swimlane.id == swimlane_1_id
 
@@ -2715,5 +2723,3 @@ def test_delete_swimlane(client):
     assert ordered_uss[3].swimlane == swimlane2
     assert ordered_uss[4].subject == 'us2'
     assert ordered_uss[4].swimlane == swimlane2
-
-
